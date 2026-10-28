@@ -69,17 +69,20 @@ class TestMsg2Md(unittest.TestCase):
     def test_existing_output_is_not_overwritten(self):
         source = self.make_source()
         destination = source.with_suffix(".md")
-        destination.write_text(
-            "Existing content",
-            encoding="utf-8",
-        )
+        original_output = b"Existing content\r\n"
+        destination.write_bytes(original_output)
+        original_source = source.read_bytes()
 
         with self.assertRaises(FileExistsError):
             convert_message(source)
 
         self.assertEqual(
-            destination.read_text(encoding="utf-8"),
-            "Existing content",
+            destination.read_bytes(),
+            original_output,
+        )
+        self.assertEqual(
+            source.read_bytes(),
+            original_source,
         )
 
     @patch("msg2md.extract_msg.Message")
@@ -475,6 +478,58 @@ class TestMsg2Md(unittest.TestCase):
             "Confidential email content",
             output.getvalue(),
         )
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_plain_text_body_fidelity(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+        original_bytes = source.read_bytes()
+
+        original_body = (
+            "Hello Bob,\\n"
+            "\\n"
+            "Please review the résumé for José.\\n"
+            "The estimated cost is €250.\\n"
+            "\\n"
+            "# Project Update\\n"
+            "*Important*\\n"
+            "- Action item\\n"
+            "\\n"
+            "Regards,\\n"
+            "Alice\\n"
+            "\\n"
+            "-----Original Message-----\\n"
+            "From: Bob\\n"
+            "Sent: Monday\\n"
+            "> Previous message line 1\\n"
+            "> Previous message line 2"
+        )
+
+        message = self.mock_message(
+            body=original_body,
+            htmlBody=None,
+        )
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        # The complete original body must appear unchanged.
+        self.assertIn(original_body, content)
+
+        # Verify important preservation cases.
+        self.assertIn("résumé for José", content)
+        self.assertIn("€250", content)
+        self.assertIn("Regards,\\nAlice", content)
+        self.assertIn("-----Original Message-----", content)
+        self.assertIn("> Previous message line 1", content)
+        self.assertIn("# Project Update", content)
+        self.assertIn("*Important*", content)
+
+        # The original MSG must remain unchanged.
+        self.assertEqual(source.read_bytes(), original_bytes)
 
 
 if __name__ == "__main__":
