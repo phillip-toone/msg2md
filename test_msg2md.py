@@ -385,5 +385,49 @@ class TestMsg2Md(unittest.TestCase):
         self.assertNotIn("SECRET_SCRIPT_MARKER", content)
 
 
+    @patch("msg2md.extract_msg.Message")
+    def test_metadata_markdown_escaping(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+
+        message = self.mock_message(
+            subject="Project *Alpha* [Review]",
+        )
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn(
+            r"**Subject:** Project \*Alpha\* \[Review\]",
+            content,
+        )
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_metadata_newlines_are_safe(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+
+        message = self.mock_message(
+            subject="Project Update\n# Important",
+        )
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "**Subject:** Project Update # Important",
+            content,
+        )
+        self.assertNotIn(
+            "\\n# Important",
+            content,
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,11 +3,23 @@
 
 import argparse
 import os
+import re
 from pathlib import Path
 
 import extract_msg
 from bs4 import BeautifulSoup
 from markdownify import markdownify
+
+
+def escape_markdown(value: str) -> str:
+    """Escape Markdown syntax in metadata and filenames."""
+    value = str(value)
+    value = value.replace("\r", " ").replace("\n", " ")
+    return re.sub(
+        r"([\\`*_\[\]<>|])",
+        lambda match: "\\" + match.group(1),
+        value,
+    )
 
 
 def convert_message(source: Path) -> Path:
@@ -64,11 +76,11 @@ def convert_message(source: Path) -> Path:
     markdown = (
         "# Email\n\n"
         "## Metadata\n\n"
-        f"**Subject:** {subject}\n\n"
-        f"**From:** {sender}\n\n"
-        f"**To:** {recipients}\n\n"
-        f"**Cc:** {cc}\n\n"
-        f"**Date:** {date}\n\n"
+        f"**Subject:** {escape_markdown(subject)}\n\n"
+        f"**From:** {escape_markdown(sender)}\n\n"
+        f"**To:** {escape_markdown(recipients)}\n\n"
+        f"**Cc:** {escape_markdown(cc)}\n\n"
+        f"**Date:** {escape_markdown(date)}\n\n"
         "## Body\n\n"
         f"{body}\n"
     )
@@ -79,7 +91,7 @@ def convert_message(source: Path) -> Path:
     if attachment_names:
         for filename in attachment_names:
             if filename:
-                markdown += f"- {filename}\n"
+                markdown += f"- {escape_markdown(filename)}\n"
             else:
                 markdown += "- Unnamed attachment\n"
     else:
