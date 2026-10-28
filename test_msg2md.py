@@ -429,5 +429,53 @@ class TestMsg2Md(unittest.TestCase):
         )
 
 
+    @patch("msg2md.extract_msg.Message")
+    def test_corrupted_msg_does_not_create_output(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+        original_bytes = source.read_bytes()
+
+        mock_message_class.side_effect = ValueError(
+            "Invalid Outlook MSG structure"
+        )
+
+        with self.assertRaises(ValueError):
+            convert_message(source)
+
+        self.assertFalse(source.with_suffix(".md").exists())
+        self.assertEqual(source.read_bytes(), original_bytes)
+
+
+    @patch("msg2md.convert_message")
+    def test_cli_hides_unexpected_error_details(
+        self, mock_convert
+    ):
+        import io
+        from contextlib import redirect_stdout
+
+        from msg2md import main
+
+        mock_convert.side_effect = RuntimeError(
+            "Confidential email content"
+        )
+
+        output = io.StringIO()
+
+        with patch(
+            "sys.argv",
+            ["msg2md.py", "test.msg"],
+        ):
+            with redirect_stdout(output):
+                exit_code = main()
+
+        self.assertNotEqual(exit_code, 0)
+        self.assertIn("Error:", output.getvalue())
+        self.assertNotIn(
+            "Confidential email content",
+            output.getvalue(),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

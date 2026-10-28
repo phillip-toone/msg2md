@@ -132,8 +132,26 @@ def main() -> int:
 
     try:
         destination = convert_message(args.message)
-    except (OSError, ValueError, Exception) as error:
-        print(f"Error: {error}")
+    except FileExistsError:
+        print("Error: Output Markdown file already exists.")
+        return 1
+    except ValueError as error:
+        message = str(error)
+
+        if message.startswith("Input file does not exist:"):
+            print("Error: Input file does not exist.")
+        elif message == "Input must be a .msg file":
+            print("Error: Input must be a .msg file.")
+        elif message == "No readable message body found":
+            print("Error: No readable message body found.")
+        else:
+            print("Error: Message conversion failed.")
+        return 1
+    except OSError:
+        print("Error: File access or writing failed.")
+        return 1
+    except Exception:
+        print("Error: Message conversion failed.")
         return 1
 
     print(f"Created: {destination}")
