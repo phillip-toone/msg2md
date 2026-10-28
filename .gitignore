@@ -221,3 +221,7 @@ __marimo__/
 
 # Outlook emails (do not commit real correspondence)
 *.msg
+
+# Temporary portable Python setup files
+.packages/
+get-pip.py
