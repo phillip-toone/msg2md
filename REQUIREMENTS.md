@@ -20,7 +20,7 @@ python msg2md.py "path/to/message.msg"
 
 - Extract available metadata: subject, sender, recipients (To and Cc), and date/time.
 - Represent missing metadata explicitly and neutrally (for example, `Not available`); do not invent values.
-- Preserve the complete readable message body, including signatures and quoted replies as supplied by the source.
+- Preserve the complete readable message text, including signatures and quoted replies as supplied by the source. The derived Markdown may normalize excessive blank lines as described below; do not remove substantive content.
 - Prefer a plain-text body when one is available. If the message is HTML-only, convert the HTML to readable Markdown while preserving meaningful text, links, and list structure where practical.
 - List attachment filenames, if any, without extracting attachments or embedding their content. Handle unnamed attachments without inventing names.
 - Use clear Markdown headings for message metadata, body, and attachments.
@@ -28,6 +28,13 @@ python msg2md.py "path/to/message.msg"
 - Preserve Unicode characters using UTF-8 output.
 - Do not summarize, rewrite, classify, or add AI-generated notes.
 - If the body cannot be extracted reliably, fail clearly rather than silently writing a misleadingly empty or incomplete document. Document any known limitations of extraction, especially HTML layout and embedded objects.
+
+## Readability formatting (v0.1 decision)
+
+- By default, normalize line endings in the derived body to LF and collapse runs of consecutive blank lines (including whitespace-only lines) to one blank line.
+- Preserve ordinary single line breaks and all substantive text. Do not summarize or reword the email.
+- This is an intentional whitespace transformation in the `.md` output only. The `.msg` remains authoritative and unchanged.
+- No formatting option or alternate preservation mode is required in v0.1.
 
 ## Safety and scope
 
@@ -64,3 +71,11 @@ python msg2md.py "path/to/message.msg"
 - Batch conversion, directory scanning, or thread-level analysis.
 - Extracting or saving attachments.
 - Direct Outlook integration, graphical interfaces, configuration systems, and Git automation.
+
+## Implementation and verification status (2026-10-28)
+
+The initial converter is implemented in `msg2md.py` using `extract-msg`, `markdownify`, and Beautiful Soup. Development has been verified on Windows/Git Bash with a uv-managed Python 3.13.18 environment. A Git Bash launcher at `/d/bin/msg2md` is an optional local convenience, not a required installed component.
+
+At this checkpoint, 21 automated tests pass, covering normal and failure paths, HTML fallback, metadata handling, attachments using mocks, whitespace normalization, and output safety. Several real Outlook messages have been converted and reviewed; a temporary-copy integration check verified unchanged source bytes. These results support the implemented behavior but do **not** establish universal compatibility with Outlook variants.
+
+**Remaining acceptance checks before declaring v0.1 released:** test a sanitized real `.msg` containing an attachment, review unusual/embedded attachments and extraction failures, and confirm documentation and output fidelity against representative samples. Do not weaken acceptance criteria to match the implementation.
