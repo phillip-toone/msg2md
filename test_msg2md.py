@@ -30,6 +30,8 @@ class TestMsg2Md(unittest.TestCase):
             "to": "Bob <bob@example.com>",
             "cc": None,
             "date": "2026-10-28 09:30",
+            "htmlBody": None,
+            "attachments": [],
             "body": (
                 "Hello Bob,\n\n"
                 "This is a test message.\n\n"
@@ -239,6 +241,148 @@ class TestMsg2Md(unittest.TestCase):
 
         self.assertIn("- Unnamed attachment", content)
         attachment.save.assert_not_called()
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_html_only_message(self, mock_message_class):
+        source = self.make_source()
+
+        message = self.mock_message(body=None)
+        message.htmlBody = (
+            b"<html><body>"
+            b"<p>Hello Bob,</p>"
+            b"<p>Please review the "
+            b'<a href="https://example.com">project page</a>.'
+            b"</p>"
+            b"<ul><li>First item</li><li>Second item</li></ul>"
+            b"<p>Regards,<br>Alice</p>"
+            b"</body></html>"
+        )
+        message.attachments = []
+
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn("## Body", content)
+        self.assertIn("Hello Bob,", content)
+        self.assertIn(
+            "[project page](https://example.com)",
+            content,
+        )
+        self.assertIn("First item", content)
+        self.assertIn("Second item", content)
+        self.assertIn("Regards,", content)
+        self.assertIn("Alice", content)
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_plain_text_preferred_over_html(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+
+        message = self.mock_message(
+            body="Original plain-text message.",
+            htmlBody=(
+                b"<html><body>"
+                b"<p>Different HTML message.</p>"
+                b"</body></html>"
+            ),
+        )
+
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "Original plain-text message.",
+            content,
+        )
+        self.assertNotIn(
+            "Different HTML message.",
+            content,
+        )
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_html_without_readable_content_fails(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+
+        message = self.mock_message(
+            body=None,
+            htmlBody=b"<html><body><div></div></body></html>",
+        )
+
+        mock_message_class.return_value = message
+
+        with self.assertRaises(ValueError):
+            convert_message(source)
+
+        self.assertFalse(source.with_suffix(".md").exists())
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_html_windows_1252_encoding(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+
+        html = (
+            '<html><head>'
+            '<meta charset="windows-1252">'
+            '</head><body>'
+            '<p>Café résumé — €100</p>'
+            '</body></html>'
+        ).encode("cp1252")
+
+        message = self.mock_message(
+            body=None,
+            htmlBody=html,
+        )
+
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn("Café résumé — €100", content)
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_html_excludes_scripts_and_styles(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+
+        html = (
+            b"<html><head>"
+            b"<style>SECRET_STYLE_MARKER</style>"
+            b"<script>SECRET_SCRIPT_MARKER</script>"
+            b"</head><body>"
+            b"<p>This is the actual email message.</p>"
+            b"</body></html>"
+        )
+
+        message = self.mock_message(
+            body=None,
+            htmlBody=html,
+        )
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn(
+            "This is the actual email message.",
+            content,
+        )
+        self.assertNotIn("SECRET_STYLE_MARKER", content)
+        self.assertNotIn("SECRET_SCRIPT_MARKER", content)
 
 
 if __name__ == "__main__":

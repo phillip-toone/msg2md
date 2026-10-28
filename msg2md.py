@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 
 import extract_msg
+from bs4 import BeautifulSoup
+from markdownify import markdownify
 
 
 def convert_message(source: Path) -> Path:
@@ -28,9 +30,22 @@ def convert_message(source: Path) -> Path:
         body = message.body
 
         if body is None or not body.strip():
-            raise ValueError(
-                "No readable plain-text message body found"
-            )
+            html = message.htmlBody
+
+            if html:
+                if isinstance(html, bytes):
+                    soup = BeautifulSoup(html, "html.parser")
+                    html = str(soup)
+
+                body = markdownify(
+                    html,
+                    heading_style="ATX",
+                )
+
+            if body is None or not body.strip():
+                raise ValueError(
+                    "No readable message body found"
+                )
 
         subject = message.subject or "Not available"
         sender = message.sender or "Not available"
