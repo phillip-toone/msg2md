@@ -38,6 +38,14 @@ def convert_message(source: Path) -> Path:
         cc = message.cc or "Not available"
         date = message.date or "Not available"
 
+        attachment_names = []
+        for attachment in message.attachments:
+            filename = (
+                attachment.longFilename
+                or attachment.shortFilename
+            )
+            attachment_names.append(filename)
+
     markdown = (
         "# Email\n\n"
         "## Metadata\n\n"
@@ -50,6 +58,17 @@ def convert_message(source: Path) -> Path:
         f"{body}\n"
     )
 
+
+    markdown += "\n## Attachments\n\n"
+
+    if attachment_names:
+        for filename in attachment_names:
+            if filename:
+                markdown += f"- {filename}\n"
+            else:
+                markdown += "- Unnamed attachment\n"
+    else:
+        markdown += "None\n"
 
     fd = os.open(
         destination,

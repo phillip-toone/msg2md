@@ -179,5 +179,67 @@ class TestMsg2Md(unittest.TestCase):
         self.assertEqual(source.read_bytes(), original_bytes)
 
 
+    @patch("msg2md.extract_msg.Message")
+    def test_named_attachment_is_listed(self, mock_message_class):
+        source = self.make_source()
+
+        message = self.mock_message()
+        attachment = MagicMock()
+        attachment.longFilename = "project-plan.pdf"
+        attachment.shortFilename = "PROJECT~1.PDF"
+        message.attachments = [attachment]
+
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn("## Attachments", content)
+        self.assertIn("project-plan.pdf", content)
+        self.assertNotIn("PROJECT~1.PDF", content)
+
+        # Conversion must not save attachment contents.
+        attachment.save.assert_not_called()
+
+        # No attachment files should be created.
+        self.assertEqual(
+            sorted(p.name for p in self.directory.iterdir()),
+            ["test.md", "test.msg"],
+        )
+
+
+    @patch("msg2md.extract_msg.Message")
+    def test_no_attachments(self, mock_message_class):
+        source = self.make_source()
+
+        message = self.mock_message()
+        message.attachments = []
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn("## Attachments", content)
+        self.assertIn("## Attachments\n\nNone", content)
+
+    @patch("msg2md.extract_msg.Message")
+    def test_unnamed_attachment(self, mock_message_class):
+        source = self.make_source()
+
+        message = self.mock_message()
+        attachment = MagicMock()
+        attachment.longFilename = None
+        attachment.shortFilename = None
+        message.attachments = [attachment]
+
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        self.assertIn("- Unnamed attachment", content)
+        attachment.save.assert_not_called()
+
+
 if __name__ == "__main__":
     unittest.main()
