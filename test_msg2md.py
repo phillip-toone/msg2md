@@ -532,5 +532,44 @@ class TestMsg2Md(unittest.TestCase):
         self.assertEqual(source.read_bytes(), original_bytes)
 
 
+    @patch("msg2md.extract_msg.Message")
+    def test_blank_lines_normalized_by_default(
+        self, mock_message_class
+    ):
+        source = self.make_source()
+        original_bytes = source.read_bytes()
+
+        original_body = (
+            "Hello,\n"
+            "\n"
+            "\n"
+            "Please review.\n"
+            " \n"
+            "\t\n"
+            "\n"
+            "Regards,\n"
+            "Alice"
+        )
+
+        message = self.mock_message(body=original_body)
+        mock_message_class.return_value = message
+
+        destination = convert_message(source)
+        content = destination.read_text(encoding="utf-8")
+
+        expected_body = (
+            "Hello,\n"
+            "\n"
+            "Please review.\n"
+            "\n"
+            "Regards,\n"
+            "Alice"
+        )
+
+        self.assertIn(expected_body, content)
+        self.assertNotIn(original_body, content)
+        self.assertEqual(source.read_bytes(), original_bytes)
+
+
 if __name__ == "__main__":
     unittest.main()

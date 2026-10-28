@@ -22,6 +22,12 @@ def escape_markdown(value: str) -> str:
     )
 
 
+def normalize_blank_lines(text: str) -> str:
+    """Collapse consecutive blank lines to one."""
+    text = text.replace("\r\n", "\n").replace("\r", "\n")
+    return re.sub(r"\n(?:[ \t]*\n)+", "\n\n", text)
+
+
 def convert_message(source: Path) -> Path:
     """Convert one MSG file without modifying the source."""
 
@@ -58,6 +64,8 @@ def convert_message(source: Path) -> Path:
                 raise ValueError(
                     "No readable message body found"
                 )
+
+        body = normalize_blank_lines(body)
 
         subject = message.subject or "Not available"
         sender = message.sender or "Not available"
